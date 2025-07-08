@@ -922,7 +922,6 @@ function phoneRotate() {
     Page Transition Logic
    ============================================== */
   
-  
   const lottieContainer = document.getElementById('lottie-container');
   let currentAnimation = null;
   let isAnimating = false;
@@ -967,66 +966,163 @@ function phoneRotate() {
     });
   };
   
-  async function pageTransition(url, isPopState = false) {
+  // Create overlay elements
+  const overlaySecond = document.createElement("div");
+  overlaySecond.className = "page-overlay-second";
+  document.body.appendChild(overlaySecond);
+  
+  // Create black overlay
+  const blackOverlay = document.createElement("div");
+  blackOverlay.className = "black-overlay";
+  document.body.appendChild(blackOverlay);
+  
+  // Add CSS styles for overlay
+  const style = document.createElement('style');
+  style.textContent = `
+    .page-overlay-second {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0);
+      z-index: 999999999;
+      pointer-events: none;
+    }
+    
+    /* Black overlay to prevent flicker */
+    .black-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: 9999999999999999999;
+      pointer-events: none;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  let lastUrl = "";
+  let preloadedPages = {};
+  
+    // Page Transition Function with Lottie
+  async function pageTransition(url) {
     if (isAnimating) return;
     isAnimating = true;
-
-    // Prevent any scroll events during transition
-    document.body.style.overflow = 'hidden';
     
-    const viewportHeight = window.innerHeight;
-    const scrollY = window.scrollY;
-    const viewportOffset = scrollY + viewportHeight / 2;
-  
-    gsap.set(".page-container", {
-      transformOrigin: `50% ${viewportOffset}px`
-    });
-  
-    const gsapPageContainer = gsap.to(".page-container", {
-      scale: 1.5, opacity: 0.2, rotate: 15, yPercent: -30, xPercent: 50, duration: 1.2, ease: "power4.inOut"
-    });
-  
-    const gsapCursor = gsap.to("#cursor", {
-      opacity: 0, duration: 1, scale: 0, ease: "expo.inOut"
-    });
-  
+    // Play exit Lottie animation
     const lottieExit = playLottie(
       'https://cdn.prod.website-files.com/677bcc54b22ed32ad332c1cf/677be1141a59428b8bde6cb1_pt-exit.json',
       1, 1.5, "power2.out"
     );
+   
+    const gsapCursor = gsap.to("#cursor", {
+      opacity: 0, duration: 1, scale: 0, ease: "expo.inOut"
+    });
+
+    const gsapPageContainer = gsap.to(".page-container", {
+      scale: 1.5, opacity: 1, rotate: 15, yPercent: -30, xPercent: 50, duration: 1.2, ease: "power4.inOut"
+    });
+    
+    // Wait for Lottie animation to complete
+    await lottieExit;
+    
+    // Reduced timeout for faster transitions
+    const timeout = window.innerWidth <= 650 ? 600 : 500;
   
-    await Promise.race([
-      Promise.all([gsapPageContainer, gsapCursor, lottieExit]),
-      new Promise(resolve => setTimeout(resolve, 767))
-    ]);
-  
-    if (!isPopState) {
-      history.pushState({}, '', url);
-    }
-  
-    window.location.href = url;
-    isAnimating = false;
+    setTimeout(() => {
+      window.location.href = url;
+      isAnimating = false;
+    }, timeout);
   }
   
+  // Prefetch function
+  function prefetchPage(href) {
+    if (!preloadedPages[href]) {
+      fetch(href, { method: "GET" })
+        .then(() => preloadedPages[href] = true)
+        .catch(() => console.warn(`Prefetch failed for: ${href}`));
+    }
+  }
+  
+  // Navigate with Animation
+  function navigateWithAnimation(event) {
+    const url = this.getAttribute("href");
+    const target = this.getAttribute("target");
+  
+    if (target === "_blank" || url.startsWith("#") || url.startsWith("mailto:") || url.startsWith("https://wa.me") || url.includes("=") || url.includes("?")) return;
+  
+    event.preventDefault();
+  
+    if (url === lastUrl) return;
+    lastUrl = url;
+  
+    setTimeout(() => lastUrl = "", 500);
+  
+    history.pushState({}, "", url);
+    pageTransition(url);
+  }
+  
+  // Add prefetching and navigation logic to links
+  const links = document.querySelectorAll("a[href]");
+  links.forEach((link) => {
+    const href = link.getAttribute("href");
+  
+    if (href && !href.startsWith("http") && !href.startsWith("#") && href !== "") {
+      // Prefetch on hover/touch
+      link.addEventListener("mouseenter", () => prefetchPage(href));
+      link.addEventListener("touchstart", () => prefetchPage(href));
+  
+      // Click event for navigation
+      link.addEventListener("click", navigateWithAnimation);
+    }
+  });
+  
+  // Handle back/forward navigation
+  window.addEventListener("popstate", () => {
+    const currentURL = document.location.pathname;
+    pageTransition(currentURL);
+  });
+  
+  // Enter animation with Lottie
   async function playEnterAnimation() {
-    const viewportHeight = window.innerHeight;
-    const scrollY = window.scrollY;
-    const viewportOffset = scrollY + viewportHeight / 2;
-  
-    gsap.set(".page-container", {
-      transformOrigin: `50% ${viewportOffset}px`
-    });
-  
+    // Play enter Lottie animation
     const lottieEnter = playLottie(
       'https://cdn.prod.website-files.com/677bcc54b22ed32ad332c1cf/677be1b8067de99bde70f19b_pt-enter.json',
-      0.8, 1, "expo.in"
+      1, 1, "expo.in"
     );
-  
+    
+    // GSAP overlay exit animation
+    gsap.to(".page-overlay-first", { 
+      height: "0dvh", 
+      duration: 1.1,
+      delay: 0.1,
+      ease: "expo.inOut" 
+    });
+    
+    // Fade out black overlay after 0.3 seconds
+    setTimeout(() => {
+      gsap.to(".black-overlay", {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.out",
+        onComplete: () => {
+          // Remove black overlay after fade
+          const blackOverlay = document.querySelector(".black-overlay");
+          if (blackOverlay) {
+            blackOverlay.remove();
+          }
+        }
+      });
+    }, 300);
+    
     const gsapCursor = gsap.fromTo("#cursor",
       { scale: 0, opacity: 0 },
-      { scale: 1, delay: 0.6, opacity: 1, duration: 2, ease: "expo.out" }
+      { scale: 1, delay: 0.3, opacity: 1, duration: 1, ease: "expo.out" }
     );
-  
+
     const gsapPageContainer = gsap.fromTo(".page-container",
       { scale: 2, opacity: 0, yPercent: -50, xPercent: -50, rotate: -15 },
       {
@@ -1035,7 +1131,7 @@ function phoneRotate() {
         yPercent: 0,
         xPercent: 0,
         rotate: 0,
-        duration: 1.5,
+        duration: 1,
         delay: 0.1,
         ease: "power4.out",
         onComplete: () => {
@@ -1048,51 +1144,10 @@ function phoneRotate() {
         }
       }
     );
-  
+    
+    // Wait for all animations to complete
     await Promise.all([lottieEnter, gsapCursor, gsapPageContainer]);
   }
-  
-  
-  
-  
-  
-  
-  document.addEventListener("click", (e) => {
-    const link = e.target.closest('a');
-  
-    // 1. Not a link? Ignore
-    if (!link) return;
-  
-    // 2. Inside a form? Leave it alone (submit buttons etc)
-    if (link.closest('form')) return;
-  
-    // 3. Get link href and target
-    const href = link.getAttribute("href");
-    const target = link.getAttribute("target");
-  
-    // 4. Conditions to ignore
-    if (
-      !href ||
-      href.startsWith('mailto:') ||
-      href.startsWith('tel:') ||
-      href.startsWith('#') ||
-      href.startsWith('javascript:') ||
-      href.includes('://') || // External
-      target === '_blank'
-    ) return;
-  
-    // 5. If passed all, intercept
-    e.preventDefault();
-    pageTransition(href);
-  });
-  
-  
-  
-  
-  // Handle back/forward browser navigation
-  window.addEventListener("popstate", () => {
-    pageTransition(window.location.href, true);
-  });
   
   // Play enter animation on load
   window.addEventListener("load", () => {
