@@ -8,63 +8,28 @@
         width: "100vw",
         height: "100dvh",
         backgroundColor: "black",
-        color: "white",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        fontFamily: "var(--secondary-font)",
-        fontWeight: "normal",
-        mixBlendMode: "differnece",
-        fontSize: "2vw",
         zIndex: "999999",
-        pointerEVents: "none",
+        opacity: "0",
         transition: "opacity 0.5s ease",
-        opacity: "1",
+        pointerEvents: "none",
     });
 
-    const counterText = document.createElement("div");
-    counterText.style.opacity = "0";
-    counterText.style.transition = "opacity 2s ease";
-    counterText.textContent = "0%";
-
-    loader.appendChild(counterText);
     document.documentElement.appendChild(loader);
 
-    let counter = 0;
-    let loadingComplete = false;
+    // Function to show loader (for page transitions)
+    window.showLoader = () => {
+        loader.style.opacity = "1";
+        loader.style.pointerEvents = "auto";
+    };
 
-    // Fade in the counter text
-    setTimeout(() => {
-        counterText.style.opacity = "1";
-    }, 100); // short delay to trigger the CSS transition
+    // Function to hide loader (for page transitions)
+    window.hideLoader = () => {
+        loader.style.opacity = "0";
+        loader.style.pointerEvents = "none";
+    };
 
-    const interval = setInterval(() => {
-        counter += Math.floor(Math.random() * 5) + 1;
-        if (counter >= 100) {
-            counter = 100;
-            clearInterval(interval);
-            loadingComplete = true;
-        }
-        counterText.textContent = counter + "%";
-    }, 90);
-
-    window.addEventListener("load", () => {
-        const ensureDuration = 20; // at least one second loading
-
-        const checkLoaderComplete = setInterval(() => {
-            if (loadingComplete) {
-                clearInterval(checkLoaderComplete);
-                setTimeout(() => {
-                    loader.style.opacity = "0";
-                    document.dispatchEvent(new CustomEvent("loadingFinished"));
-                    loader.addEventListener("transitionend", () => {
-                        loader.remove();
-                    }, { once: true });
-                }, ensureDuration);
-            }
-        }, 50);
-    });
-
+    // Dispatch event when loader is ready
+    document.dispatchEvent(new CustomEvent("loaderReady"));
 })();
 
 
@@ -82,7 +47,6 @@ document.addEventListener("DOMContentLoaded", function() {
     });
   }
 });
-
 
 /*
 const overlay = document.createElement('div');
